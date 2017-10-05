@@ -11,24 +11,29 @@ import glob
 import numpy as np
 import pandas 
 from scipy.optimize import minimize
-from PIL import Image, ExifTags
-from dateutil.parser import parse
+from PIL import Image
+from datetime import datetime 
+#import matplotlib.pyplot as plt
+import os
 
-import matplotlib.pyplot as plt
 
-
-
-def getExifTimes(jpgfiles):
-    
-    jpgtimes = np.zeros([len(jpgfiles), 1], dtype='datetime64[ms]')
+def getImageList(globpattern):
+    jpgfiles = glob.glob(globpattern)
+    filenames = list(map(lambda f: os.path.split(f)[-1],jpgfiles)) 
+    df = pandas.DataFrame({'DateTimeOriginal': np.datetime64(unit='ms'), 'Filename': jpgfiles },index=filenames)
     tagDateTimeOriginal = 36867 #DateTimeOriginal  <- unfortunately only 1sec resolution!
-    for idx,filename in enumerate(jpgfiles):
-        with Image.open(filename) as img:
-            jpgtimes[idx] = np.datetime64(parse(img._getexif()[tagDateTimeOriginal]))
+    for idx,row in df.iterrows():
+        with Image.open(row.Filename) as img:
+            t=datetime.strptime(img._getexif()[tagDateTimeOriginal],'%Y:%m:%d %H:%M:%S');
+            df.set_value(idx,'DateTimeOriginal',np.datetime64(t,unit='ms'))
             #exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
             #jpgtimes[idx] = np.datetime64(parse(exif["DateTimeOriginal"]))
-    
-    return jpgtimes
+    t = df.DateTimeOriginal.values.astype('datetime64[ms]')
+    t = (t-t[0]).astype('float')
+    df.insert(len(df.columns),'RelTimeMS',t)
+    df.sort_values(['DateTimeOriginal', 'Filename'],inplace=True)
+    df.index.name = 'File'
+    return df
 
 def matchtocam(jpgtimes,camtimes):
     constoffset = camtimes[0]
@@ -59,7 +64,10 @@ def matchtocam(jpgtimes,camtimes):
     t = jpgtimes + offset.x[0]
     camix = np.interp(t,camtimes,np.arange(len(camtimes)),left = 0, right=len(camtimes)-1)
     camix = np.round(camix).astype(np.int64)
-    # todo: add logic for what to do if two images are the same.
+    
+    if len(camix) > len(set(camix)):
+        # todo: add logic for what to do if two images are the same.
+        raise('Photos have not all been assigned to different camera trigger events.')
     return camix
 
 
@@ -68,22 +76,24 @@ def matchtocam(jpgtimes,camtimes):
 if __name__ == "__main__":
 
     folder = r"D:/drone/EGRIP 2017/020817 D2C1/" 
-
-    jpgfiles = glob.glob(folder + r"D2/*.JPG")
+    globpattern = folder + r"D2/*.JPG"
     
     import parselog
     
     log = parselog.parselogfile(folder + '2017-08-02 10-51-12.log')
-    camtimes = log['CAM']['GPSTime'].values
-    jpgtimes = getExifTimes(jpgfiles)
-    jpgtimes = (jpgtimes-jpgtimes[0]).astype(np.int64) * 1.0
     
-    camix = matchtocam(jpgtimes,camtimes)
+    images = getImageList(globpattern)
+    
+    camix = matchtocam(images.RelTimeMS.values,log['CAM']['GPSTime'].values)
     
     jpgcams = log['CAM'].iloc(camix)[:].copy()
+    jpgcams.set_index(images.index.values,inplace =True)
+    jpgcams.index.name = 'Filename'
     
-    lagtime = 150 #ms (should be greater than zero... this is the shutter delay)
+    lagtime = 0 #ms (should be greater than zero... this is the shutter delay)
     
+    jpgcams[['Lat','Lng','Alt','Roll','Pitch','Yaw']].to_csv(folder + 'testcamlocations-nolag.txt')
+
 
     #TODO: get lat,long,alt etc from EKF1
     useEKF1 = True
@@ -106,11 +116,14 @@ if __name__ == "__main__":
         datasource = 'ATT' #ATT -OR- EKF1
 
     jt = jpgcams['GPSTime']+lagtime-log['gpstimeoffset']
-    #todo: protect against circular overflows - np.unwrap...
+    #todo: protect against circular overflows - np.unwrap... or quaternion interpolation...
     jpgcams['Roll'] = np.interp(jt,log[datasource]['TimeMS'],log[datasource]['Roll'])
     jpgcams['Pitch'] = np.interp(jt,log[datasource]['TimeMS'],log[datasource]['Pitch'])
     jpgcams['Yaw'] = np.interp(jt,log[datasource]['TimeMS'],log[datasource]['Yaw'])
 
+    jpgcams[['Lat','Lng','Alt','Roll','Pitch','Yaw']].to_csv(folder + 'testcamlocations-0.txt')
+    
+#    jpgcams.insert(0,'Filaname',jpgfiles)
     
     
     
