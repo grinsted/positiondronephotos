@@ -92,7 +92,7 @@ if __name__ == "__main__":
     
     lagtime = 0 #ms (should be greater than zero... this is the shutter delay)
     
-    jpgcams[['Lat','Lng','Alt','Roll','Pitch','Yaw']].to_csv(folder + 'testcamlocations-nolag.txt')
+    jpgcams[['Lng','Lat','Alt','Yaw','Pitch','Roll']].to_csv(folder + 'testcamlocations-nolag.txt')
 
 
     #TODO: get lat,long,alt etc from EKF1
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     jpgcams['Pitch'] = np.interp(jt,log[datasource]['TimeMS'],log[datasource]['Pitch'])
     jpgcams['Yaw'] = np.interp(jt,log[datasource]['TimeMS'],log[datasource]['Yaw'])
 
-    jpgcams[['Lat','Lng','Alt','Roll','Pitch','Yaw']].to_csv(folder + 'testcamlocations-0.txt')
+    jpgcams[['Lng','Lat','Alt','Yaw','Pitch','Roll']].to_csv(folder + 'testcamlocations-0.txt')
     
 #    jpgcams.insert(0,'Filaname',jpgfiles)
     
