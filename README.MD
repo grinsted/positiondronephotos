@@ -8,17 +8,16 @@ In digital photogrammetry it is important to have the camera position and orient
 * It should work even if some jpgs are missing: Mission planner assumes that there is one photo for each "CAM" message in the log files. But sometimes the camera cannot keep up, and some images are not captured even if the flight computer attempted to trigger one. 
 * Can use kalman filtered values instead of raw values (EKF1 messages instead of ATT/CAM/GPS messages). The CAM messages in the log appear to use the raw GPS and orientation readings (the are the same as the last GPS/ATT message). But flight logs also contain Kalman Filtered positions and orientations. The kalman filtered values are probably better. 
 * Allows for any shutter delay by interpolating in high frequency observations in the log file. (Mission planner also allows for a shutter delay, but it does not seem to allow as fine grained interpolation). 
-
-Project not done... Still in test phase. 
+* There is no way to get high precision time codes from the image files themselves. The filedates, and the exif info only has 1 second precision. So, we figure out the timing by finding the best match between exif-DateTimeOriginal to the gps timings in the CAM message from the log. This works because the triggering rate is not constant. 
+* Project not done... Still in test phase. 
 
 
 ## the project is so far only focused on my own needs. 
 
 My setup is:
 * Drone: A cumulus one from sky-watch  
-* Sony QX1 ( manual focus, shutterspeed 1/4000, sony qx-1)  
+* Sony QX1 ( manual focus, shutterspeed 1/4000)  
 * log files saved with mission planner
 * Exporting csv files for importing be used in AGISOFT photoscan 
-
 
 
