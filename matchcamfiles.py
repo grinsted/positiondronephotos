@@ -16,6 +16,8 @@ from datetime import datetime
 #import matplotlib.pyplot as plt
 import os
 import parselog
+from scipy.signal import savgol_filter
+from scipy.stats import trim_mean
 
 def getImageList(globpattern):
     """Return a dataframe containing a list of images and dates of when the photos were taken."""
@@ -36,42 +38,92 @@ def getImageList(globpattern):
     df.index.name = 'File'
     return df
 
+
+def costfun2(jpgtimes,costtimes):
+    totalcost = 0
+    curix = 0
+    camix = np.zeros([len(jpgtimes),1],dtype=np.int)
+    for jix, time in enumerate(jpgtimes):
+        cost = np.inf
+        for ix in np.arange(curix,len(costtimes)):
+            thiscost = abs(time-costtimes[ix])
+            if thiscost < cost:
+                cost = thiscost
+                curix = ix
+            else:
+                break
+        camix[jix] = curix
+        curix = curix + 1 
+        totalcost = totalcost + cost
+    return [totalcost,camix]
+
 def matchtocam(jpgtimes,camtimes):
     """figure out which rows match which camera times and return index of the matches."""
     
+#    # deal with limited resol
+#    dt = trim_mean(np.diff(jpgtimes),proportiontocut=.1) 
+#    window = 2000./dt #apply a ~2second smoothing filter
+#    window = np.round(window/2)*2+1 #ensure an odd filter
+#    if window>=3:
+#        tt = savgol_filter(jpgtimes,window_length=int(window),polyorder=1,mode='nearest')
+#        ix = abs(tt-jpgtimes)<1000 
+#        jpgtimes[ix]=tt[ix]
+        
+        
+#    constoffset = camtimes[0] #the minimizer works better if we are closer to zero. 
+#    camtimes = camtimes - constoffset
+#    # construct a costtimes-vs-cost list we can interpolate in to figure out distance to closest cam message
+#    costtimes = np.sort(camtimes)
+#    dt = np.diff(costtimes)
+#    costtimes = np.interp(np.arange(-0.5,len(costtimes),.5),np.arange(len(costtimes)),costtimes,left=costtimes[0]-np.max(dt),right=costtimes[-1]+np.max(dt))
+#    cost = costtimes * 0
+#    cost[2:-1:2] = dt/2
+#    cost[0] = np.max(dt) #special treatment of edges.
+#    cost[-1] = np.max(dt)
+#    
+#    # this function calculates the mean(square(temporaldistance)) to nearest photo.
+#    costfun = lambda offset: np.mean((np.interp(jpgtimes+offset,costtimes,cost,left=cost[0],right=cost[-1]))**2.0)
+
     constoffset = camtimes[0] #the minimizer works better if we are closer to zero. 
     camtimes = camtimes - constoffset
-    # construct a costtimes-vs-cost list we can interpolate in to figure out distance to closest cam message
-    costtimes = np.sort(camtimes)
-    dt = np.diff(costtimes)
-    costtimes = np.interp(np.arange(-0.5,len(costtimes),.5),np.arange(len(costtimes)),costtimes,left=costtimes[0]-np.max(dt),right=costtimes[-1]+np.max(dt))
-    cost = costtimes * 0
-    cost[2:-1:2] = dt/2
-    cost[0] = np.max(dt) #special treatment of edges.
-    cost[-1] = np.max(dt)
+
     
     # this function calculates the mean(square(temporaldistance)) to nearest photo.
-    costfun = lambda offset: np.mean((np.interp(jpgtimes+offset,costtimes,cost,left=cost[0],right=cost[-1]))**2.0)
+    costfun = lambda offset: costfun2(jpgtimes+offset,camtimes)[0]
     
     # Search for which cam corresponds to jpgtime ... 
     bestcost = np.Inf
     bestoffset = 0
     for camtime in camtimes:
-        curoffset = camtime - jpgtimes[0] #todo: pick a less random one
-        curcost = costfun(curoffset)
-        if curcost<bestcost:
-            bestoffset = curoffset
-            bestcost = curcost
+        for dt in np.arange(-1000,1001,250):
+            curoffset = camtime - jpgtimes[0] +dt #todo: pick a less random one
+            curcost = costfun(curoffset)
+            if curcost < bestcost:
+                bestoffset = curoffset
+                bestcost = curcost
     # then optimize
     offset = minimize(costfun, bestoffset) #the cost fun has many local minima, so we need to be close to the optimal time
     
     t = jpgtimes + offset.x[0]
-    camix = np.interp(t,camtimes,np.arange(len(camtimes)),left = 0, right=len(camtimes)-1)
-    camix = np.round(camix).astype(np.int64)
     
-    if len(camix) > len(set(camix)):
-        # todo: add logic for what to do if two images are the same.
-        raise('Photos have not all been assigned to different camera trigger events.')
+#    plt.plot(t[1:],np.diff(t))
+#    plt.plot(camtimes[1:],np.diff(camtimes))
+    
+    camix = costfun2(t,costtimes)[1]
+#    camix = np.interp(t,camtimes,np.arange(len(camtimes)),left = 0, right=len(camtimes)-1)
+#    for ii in range(1,len(camix)-1):
+#        dcamback = camix[ii]-camix[ii-1]
+#        dcamforward = camix[ii+1]-camix[ii]
+#        if (dcamforward == 0) & (dcamback>1):
+#            camix[ii]=camix[ii]-1
+#        if dcamback<=0:
+#            camix[ii+1]=camix[ii]+1
+    
+#    
+#    if len(camix) > len(set(camix)):
+#        # todo: add logic for what to do if two images are the same.
+#        raise('Photos have not all been assigned to different camera trigger events.')
+    camix = np.concatenate(camix).tolist()    
     return camix
 
 
@@ -79,7 +131,7 @@ def matchtocam(jpgtimes,camtimes):
 
 if __name__ == "__main__":
 
-    folder = r"D:/drone/EGRIP 2017/020817 D2C1/C1/" 
+    folder = r"D:/drone/EGRIP 2017/2017-07-25 HC forest/" 
     
     print("Folder: {}".format(folder))
     
@@ -137,15 +189,15 @@ if __name__ == "__main__":
             datasource = 'ATT' #ATT -OR- EKF1
     
         jt = jpgcams['GPSTime']+shutterdelayMS-log['gpstimeoffset']
-        #todo: protect against circular overflows - quaternion interpolation...
+        #todo: protect against circular overflows - quaternion interpolation... (Gimbal lock extremely unlikely though)
         jpgcams['Roll'] = np.interp(jt,log[datasource]['TimeMS'],log[datasource]['Roll'])
         jpgcams['Pitch'] = np.interp(jt,log[datasource]['TimeMS'],log[datasource]['Pitch'])
-        jpgcams['Yaw'] = np.interp(jt,log[datasource]['TimeMS'],log[datasource]['Yaw'])
+        log[datasource]['Yaw'] = np.unwrap(log[datasource]['Yaw']*np.pi/180)*180/np.pi
+        jpgcams['Yaw'] = np.interp(jt,log[datasource]['TimeMS'],log[datasource]['Yaw']) % 360
     
         outputfilename = outputfolder + 'CamLocations_{}lag.txt'.format(shutterdelayMS)
         jpgcams[['Lng','Lat','Alt','Yaw','Pitch','Roll']].to_csv(outputfilename)
     
-
     print("Done!")
     
     

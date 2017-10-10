@@ -12,6 +12,8 @@ In digital photogrammetry it is important to have the camera position and orient
 * Project not done... Still in test phase. 
 
 
+
+
 ## the project is so far only focused on my own needs. 
 
 My setup is:
@@ -20,4 +22,12 @@ My setup is:
 * log files saved with mission planner
 * Exporting csv files for importing be used in AGISOFT photoscan 
 
+One particular problem I have with this setup is that the QX1 only records acquisition time at 1 second resolution. WHY!? -Anyway this project is working around this issue. 
+
+For future reference: The sony qx-1 may be light, have nice lenses, have a good sensor, but it is really falling short in other respects for drone mapping.
+Here are some of the drawbacks:
+* 1 second resolution of the meta data (what are they thinking!)
+* long shutterlag (even in completely manual mode)
+* Annoying to setup via wifi. 
+* Looses date/time in the cold when battery is changed. 
 
