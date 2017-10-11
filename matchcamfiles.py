@@ -109,7 +109,7 @@ def matchtocam(jpgtimes,camtimes):
 #    plt.plot(t[1:],np.diff(t))
 #    plt.plot(camtimes[1:],np.diff(camtimes))
     
-    camix = costfun2(t,costtimes)[1]
+    camix = costfun2(t,camtimes)[1]
 #    camix = np.interp(t,camtimes,np.arange(len(camtimes)),left = 0, right=len(camtimes)-1)
 #    for ii in range(1,len(camix)-1):
 #        dcamback = camix[ii]-camix[ii-1]
@@ -131,42 +131,53 @@ def matchtocam(jpgtimes,camtimes):
 
 if __name__ == "__main__":
 
-    folder = r"D:/drone/EGRIP 2017/2017-07-25 HC forest/" 
-    
-    print("Folder: {}".format(folder))
-    
-    globpattern = folder + r"images/*.JPG"
-    logfile = glob.glob(folder + r"logs/*.log")[0]
-    
-    outputfolder = folder + 'georef'
 
-    print("Parsing log...")
+    folders = glob.glob('d:\drone\**\logs',recursive=True)    
     
-    log = parselog.parselogfile(logfile)    
+    # folders = glob.glob('d:\\drone\\EGRIP 2017\\2017-08-07 C1C2\\flight1\\logs')
+    for folder in folders:
+        folder = os.path.split(folder)[0] + '/' 
+        print(" ")
+#        folder = r"D:/drone/EGRIP 2017/2017-07-25 HC forest/" 
+#        folder = r"D:\drone\EGRIP 2017\2017-08-02 D2C1/D2/"
+        
+        print("Folder: {}".format(folder))
+        
+        globpattern = folder + r"images/*.JPG"
+        logfile = glob.glob(folder + r"logs/*.log")
+        if len(logfile)==0:
+            print("Skipping... no log file")
+            continue
+        logfile=logfile[0]
+        
+        outputfolder = folder + 'georef/'
     
-    print("Extracting EXIF...")
-    images = getImageList(globpattern)
-
-    print("Number of images: {}".format(len(images)))
-    print("Number of CAM messages in log: {}".format(len(log["CAM"])))
+        print("Parsing log...")
+        
+        log = parselog.parselogfile(logfile)    
+        
+        print("Extracting EXIF...")
+        images = getImageList(globpattern)
     
-    print("Matching photo time to camera log")
-    jpgtimes = images.RelTimeMS.values
-    camtimes = log['CAM']['GPSTime'].values
-    camix = matchtocam(jpgtimes,camtimes)
-    print("Matched! index of first photo: {}".format(camix[0]))
+        print("Number of images: {}".format(len(images)))
+        print("Number of CAM messages in log: {}".format(len(log["CAM"])))
+        
+        print("Matching photo time to camera log")
+        jpgtimes = images.RelTimeMS.values
+        camtimes = log['CAM']['GPSTime'].values
+        camix = matchtocam(jpgtimes,camtimes)
+        print("Matched! index of first & last photo: {}-{}".format(camix[0],camix[-1]))
+        
+        jpgcams = log['CAM'].iloc[camix].copy()
+        jpgcams.set_index(images.index.values,inplace =True)
+        jpgcams.index.name = 'Filename'
     
-    jpgcams = log['CAM'].iloc[camix].copy()
-    jpgcams.set_index(images.index.values,inplace =True)
-    jpgcams.index.name = 'Filename'
-
-    if not os.path.exists(outputfolder):
-        os.makedirs(outputfolder)
-
-    jpgcams[['Lng','Lat','Alt','Yaw','Pitch','Roll']].to_csv(outputfolder + 'CamLocations_raw_CAM.txt')
+        if not os.path.exists(outputfolder):
+            os.makedirs(outputfolder)
     
-    for shutterdelayMS in [400,500,600,700,800]:
-#    shutterdelayMS = 900 #ms (should be greater than zero... this is the shutter delay)
+        #jpgcams[['Lng','Lat','Alt','Yaw','Pitch','Roll']].to_csv(outputfolder + 'CamLocations_raw_CAM.txt')
+        
+        shutterdelayMS = 550 #Sony QX1
         print("Accounting for shutterlag of {} ms".format(shutterdelayMS))
         #TODO: get lat,long,alt etc from EKF1
         useEKF1 = True
@@ -197,8 +208,8 @@ if __name__ == "__main__":
     
         outputfilename = outputfolder + 'CamLocations_{}lag.txt'.format(shutterdelayMS)
         jpgcams[['Lng','Lat','Alt','Yaw','Pitch','Roll']].to_csv(outputfilename)
-    
-    print("Done!")
+        
+        print("Done!")
     
     
     
