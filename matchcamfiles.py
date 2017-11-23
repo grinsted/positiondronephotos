@@ -132,7 +132,7 @@ def matchtocam(jpgtimes,camtimes):
 if __name__ == "__main__":
 
 
-    folders = glob.glob('d:\drone\**\logs',recursive=True)    
+    folders = glob.glob(r'D:\drone\EGRIP 2017\2017-07-30 C1D1\flight1\logs',recursive=True)    
     
     # folders = glob.glob('d:\\drone\\EGRIP 2017\\2017-08-07 C1C2\\flight1\\logs')
     for folder in folders:

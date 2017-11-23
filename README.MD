@@ -31,3 +31,12 @@ Here are some of the drawbacks:
 * Annoying to setup via wifi. 
 * Looses date/time in the cold when battery is changed. 
 
+
+### Files....
+
+* The starting point for the code is in matchcamfiles.py  - This loads all exif data from a folder of jpgs, and loads the log, and tries to match them accounting for a lag 
+* pixelpicker.py is a code to zoom an pick points in an imagefile. It returns a numpy array of coordinates when done
+* findgcps.py takes a list of stakes (GCPs), and finds images that might cover one of the gcps. It then opens the pixelpicker to allow manual identification of the GP in the photo.
+
+
+ 
